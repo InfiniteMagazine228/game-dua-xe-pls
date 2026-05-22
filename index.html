@@ -2,13 +2,10 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Game Đua Xe 3D Single Player</title>
+  <title>Game Đua Xe 3D Endless</title>
   <style>
     body { margin: 0; overflow: hidden; background: #111; }
-    #hud {
-      position: absolute; top: 10px; left: 10px;
-      color: white; font-family: sans-serif;
-    }
+    #hud { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; }
     #joystick {
       position: absolute; bottom: 50px; left: 50px;
       width: 120px; height: 120px;
@@ -21,49 +18,35 @@
       background: red; border-radius: 50%;
       position: absolute; top: 40px; left: 40px;
     }
-    #buttons {
-      position: absolute; bottom: 50px; right: 50px;
-    }
+    #buttons { position: absolute; bottom: 50px; right: 50px; }
     .btn {
       width: 80px; height: 80px; margin: 10px;
-      border-radius: 50%; background: rgba(0,255,0,0.5);
-      border: 2px solid #fff; color: white;
-      font-size: 18px; font-weight: bold;
+      border-radius: 50%; border: 2px solid #fff;
+      color: white; font-size: 18px; font-weight: bold;
     }
+    .btn.accel { background: rgba(0,255,0,0.5); }
     .btn.brake { background: rgba(255,0,0,0.5); }
+    .btn.nitro { background: rgba(0,0,255,0.5); }
+    .btn.drift { background: rgba(255,255,0,0.5); }
   </style>
 </head>
 <body>
-  <div id="hud">Tốc độ: 0</div>
+  <div id="hud">Tốc độ: 0 | Checkpoint: 0 | Thời gian: 0s</div>
   <div id="joystick"><div id="stick"></div></div>
   <div id="buttons">
     <button class="btn accel">↑</button>
     <button class="btn brake">↓</button>
+    <button class="btn nitro">N</button>
+    <button class="btn drift">D</button>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
   <script>
-    // Scene setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
-
-    // Terrain rộng với noise
-    const size = 500, segments = 200;
-    const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
-    const material = new THREE.MeshPhongMaterial({ color: 0x444444 });
-    const terrain = new THREE.Mesh(geometry, material);
-    terrain.rotation.x = -Math.PI/2;
-    for (let i = 0; i < geometry.attributes.position.count; i++) {
-      let x = geometry.attributes.position.getX(i);
-      let y = geometry.attributes.position.getY(i);
-      let z = Math.sin(x*0.05) * Math.cos(y*0.05) * 5;
-      geometry.attributes.position.setZ(i, z);
-    }
-    geometry.computeVertexNormals();
-    scene.add(terrain);
 
     // Xe
     const car = new THREE.Mesh(
@@ -72,18 +55,6 @@
     );
     car.position.y = 1;
     scene.add(car);
-
-    // Chướng ngại vật
-    const obstacles = [];
-    for (let i = 0; i < 20; i++) {
-      const box = new THREE.Mesh(
-        new THREE.BoxGeometry(5, 5, 5),
-        new THREE.MeshPhongMaterial({ color: 0x00ff00 })
-      );
-      box.position.set(Math.random()*200-100, 2.5, Math.random()*200-100);
-      scene.add(box);
-      obstacles.push(box);
-    }
 
     // Ánh sáng
     const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -95,15 +66,33 @@
 
     // Điều khiển
     let speed = 0;
+    let nitroActive = false;
+    let driftActive = false;
+    let checkpointCount = 0;
+    let startTime = Date.now();
 
-    // Nút tăng tốc/phanh
-    document.querySelector(".btn.accel").addEventListener("mousedown", () => speed += 0.2);
-    document.querySelector(".btn.brake").addEventListener("mousedown", () => speed -= 0.2);
+    // Nút mobile
+    document.querySelector(".btn.accel").addEventListener("touchstart", () => speed += 0.2);
+    document.querySelector(".btn.brake").addEventListener("touchstart", () => speed -= 0.2);
+    document.querySelector(".btn.nitro").addEventListener("touchstart", () => {
+      nitroActive = true;
+      setTimeout(() => nitroActive = false, 3000);
+    });
+    document.querySelector(".btn.drift").addEventListener("touchstart", () => driftActive = true);
+    document.querySelector(".btn.drift").addEventListener("touchend", () => driftActive = false);
 
     // Joystick xoay tròn
     const joystick = document.getElementById("joystick");
     const stick = document.getElementById("stick");
     let dragging = false;
+
+    function handleMove(x, y, rect) {
+      const angle = Math.atan2(y, x);
+      const radius = rect.width/2 - 20;
+      stick.style.left = (rect.width/2 + Math.cos(angle)*radius - 20) + "px";
+      stick.style.top  = (rect.height/2 + Math.sin(angle)*radius - 20) + "px";
+      car.rotation.y = -angle;
+    }
 
     joystick.addEventListener("mousedown", e => { dragging = true; });
     joystick.addEventListener("mouseup", e => { dragging = false; stick.style.left="40px"; stick.style.top="40px"; });
@@ -112,39 +101,63 @@
       const rect = joystick.getBoundingClientRect();
       const x = e.clientX - rect.left - rect.width/2;
       const y = e.clientY - rect.top - rect.height/2;
-      const angle = Math.atan2(y, x);
-
-      const radius = rect.width/2 - 20;
-      stick.style.left = (rect.width/2 + Math.cos(angle)*radius - 20) + "px";
-      stick.style.top  = (rect.height/2 + Math.sin(angle)*radius - 20) + "px";
-
-      car.rotation.y = -angle;
+      handleMove(x, y, rect);
     });
 
-    // Va chạm
-    function checkCollision() {
-      const carBox = new THREE.Box3().setFromObject(car);
-      for (let obs of obstacles) {
-        const obsBox = new THREE.Box3().setFromObject(obs);
-        if (carBox.intersectsBox(obsBox)) {
-          speed = 0; // dừng xe khi va chạm
-        }
+    joystick.addEventListener("touchstart", e => { dragging = true; });
+    joystick.addEventListener("touchend", e => { dragging = false; stick.style.left="40px"; stick.style.top="40px"; });
+    joystick.addEventListener("touchmove", e => {
+      if (!dragging) return;
+      const rect = joystick.getBoundingClientRect();
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left - rect.width/2;
+      const y = touch.clientY - rect.top - rect.height/2;
+      handleMove(x, y, rect);
+    });
+
+    // Chunk đường đua vô hạn
+    const chunks = [];
+    function createChunk(zPos) {
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(100, 100, 10, 10),
+        new THREE.MeshPhongMaterial({ color: 0x333333 })
+      );
+      plane.rotation.x = -Math.PI/2;
+      plane.position.z = zPos;
+      scene.add(plane);
+      chunks.push(plane);
+    }
+    for (let i = 0; i < 5; i++) createChunk(i*100);
+
+    function updateChunks() {
+      const carZ = car.position.z;
+      if (carZ > chunks[chunks.length-1].position.z - 50) {
+        createChunk(chunks[chunks.length-1].position.z + 100);
+        const old = chunks.shift();
+        scene.remove(old);
       }
     }
 
     function animate() {
       requestAnimationFrame(animate);
-      car.translateZ(speed);
-      checkCollision();
 
-      // Camera theo xe
+      let currentSpeed = speed;
+      if (nitroActive) currentSpeed += 0.5;
+      if (driftActive) car.rotation.y += 0.05;
+
+      car.translateZ(currentSpeed);
+      updateChunks();
+
       camera.position.x = car.position.x - Math.sin(car.rotation.y) * 10;
       camera.position.z = car.position.z - Math.cos(car.rotation.y) * 10;
       camera.position.y = car.position.y + 5;
       camera.lookAt(car.position);
 
-      // HUD
-      document.getElementById("hud").innerText = "Tốc độ: " + speed.toFixed(1);
+      const elapsed = Math.floor((Date.now() - startTime)/1000);
+      document.getElementById("hud").innerText =
+        "Tốc độ: " + currentSpeed.toFixed(1) +
+        " | Checkpoint: " + checkpointCount +
+        " | Thời gian: " + elapsed + "s";
 
       renderer.render(scene, camera);
     }
