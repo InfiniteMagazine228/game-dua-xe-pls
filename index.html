@@ -81,6 +81,18 @@
     document.querySelector(".btn.drift").addEventListener("touchstart", () => driftActive = true);
     document.querySelector(".btn.drift").addEventListener("touchend", () => driftActive = false);
 
+    // Keyboard (WASD, mũi tên, O cho nitro)
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowUp" || e.key.toLowerCase() === "w") speed += 0.2;
+      if (e.key === "ArrowDown" || e.key.toLowerCase() === "s") speed -= 0.2;
+      if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") car.rotation.y += 0.05;
+      if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") car.rotation.y -= 0.05;
+      if (e.key.toLowerCase() === "o") {
+        nitroActive = true;
+        setTimeout(() => nitroActive = false, 3000);
+      }
+    });
+
     // Joystick xoay tròn
     const joystick = document.getElementById("joystick");
     const stick = document.getElementById("stick");
@@ -93,16 +105,6 @@
       stick.style.top  = (rect.height/2 + Math.sin(angle)*radius - 20) + "px";
       car.rotation.y = -angle;
     }
-
-    joystick.addEventListener("mousedown", e => { dragging = true; });
-    joystick.addEventListener("mouseup", e => { dragging = false; stick.style.left="40px"; stick.style.top="40px"; });
-    joystick.addEventListener("mousemove", e => {
-      if (!dragging) return;
-      const rect = joystick.getBoundingClientRect();
-      const x = e.clientX - rect.left - rect.width/2;
-      const y = e.clientY - rect.top - rect.height/2;
-      handleMove(x, y, rect);
-    });
 
     joystick.addEventListener("touchstart", e => { dragging = true; });
     joystick.addEventListener("touchend", e => { dragging = false; stick.style.left="40px"; stick.style.top="40px"; });
