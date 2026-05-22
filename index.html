@@ -83,13 +83,15 @@
 
     // Keyboard (WASD, mũi tên, O cho nitro)
     document.addEventListener("keydown", e => {
-      if (e.key === "ArrowUp" || e.key.toLowerCase() === "w") speed += 0.2;
-      if (e.key === "ArrowDown" || e.key.toLowerCase() === "s") speed -= 0.2;
-      if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") car.rotation.y += 0.05;
-      if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") car.rotation.y -= 0.05;
-      if (e.key.toLowerCase() === "o") {
-        nitroActive = true;
-        setTimeout(() => nitroActive = false, 3000);
+      switch(e.key.toLowerCase()) {
+        case "arrowup": case "w": speed += 0.2; break;
+        case "arrowdown": case "s": speed -= 0.2; break;
+        case "arrowleft": case "a": car.rotation.y += 0.05; break;
+        case "arrowright": case "d": car.rotation.y -= 0.05; break;
+        case "o":
+          nitroActive = true;
+          setTimeout(() => nitroActive = false, 3000);
+          break;
       }
     });
 
