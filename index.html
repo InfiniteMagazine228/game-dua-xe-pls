@@ -50,10 +50,10 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Terrain rộng
-    const size = 500, segments = 100;
+    // Terrain rộng với noise
+    const size = 500, segments = 200;
     const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
-    const material = new THREE.MeshPhongMaterial({ color: 0x555555 });
+    const material = new THREE.MeshPhongMaterial({ color: 0x444444 });
     const terrain = new THREE.Mesh(geometry, material);
     terrain.rotation.x = -Math.PI/2;
     for (let i = 0; i < geometry.attributes.position.count; i++) {
@@ -72,6 +72,18 @@
     );
     car.position.y = 1;
     scene.add(car);
+
+    // Chướng ngại vật
+    const obstacles = [];
+    for (let i = 0; i < 20; i++) {
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(5, 5, 5),
+        new THREE.MeshPhongMaterial({ color: 0x00ff00 })
+      );
+      box.position.set(Math.random()*200-100, 2.5, Math.random()*200-100);
+      scene.add(box);
+      obstacles.push(box);
+    }
 
     // Ánh sáng
     const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -109,9 +121,21 @@
       car.rotation.y = -angle;
     });
 
+    // Va chạm
+    function checkCollision() {
+      const carBox = new THREE.Box3().setFromObject(car);
+      for (let obs of obstacles) {
+        const obsBox = new THREE.Box3().setFromObject(obs);
+        if (carBox.intersectsBox(obsBox)) {
+          speed = 0; // dừng xe khi va chạm
+        }
+      }
+    }
+
     function animate() {
       requestAnimationFrame(animate);
       car.translateZ(speed);
+      checkCollision();
 
       // Camera theo xe
       camera.position.x = car.position.x - Math.sin(car.rotation.y) * 10;
